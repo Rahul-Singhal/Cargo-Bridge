@@ -1,0 +1,10 @@
+CARGO BRIDGE: A PHYSICS GAME
+
+
+To run the game:
+
+1. open the directory code.
+
+2. In code directory there is a file named Game.rkt.open it.
+
+3. Press Ctrl+r to compile the code and run the game.

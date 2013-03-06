@@ -1,0 +1,97 @@
+#lang racket
+(require graphics/graphics)
+;(require racket/gui/base)
+;(require graphics/graphics)
+(open-graphics)
+
+(define v1 (open-viewport "cargo" 1200 700))
+
+(define (1-screen)
+  (lambda (x)
+  (begin (((draw-pixmap-posn "start_screen_final") x)
+                 (make-posn 0 0)
+                 "black")
+         (define m (mouse-click-posn (get-mouse-click x)))
+         (define (n m) (cond [(and (> 808 (posn-x m))
+                               (< 540 (posn-x m))
+                               (> 199 (posn-y m))
+                               (< 139 (posn-y m)))
+                               ((select-level-screen) x)]
+                             [(and (> 808 (posn-x m))
+                               (< 540 (posn-x m))
+                               (> 270 (posn-y m))
+                               (< 209 (posn-y m)))
+                              ((instruction-screen) x)]
+                             [(and (> 808 (posn-x m))
+                               (< 540 (posn-x m))
+                               (> 340 (posn-y m))
+                               (< 276 (posn-y m)))
+                              ((credit-screen) x)]
+                             [(and (> 808 (posn-x m))
+                               (< 540 (posn-x m))
+                               (> 406 (posn-y m))
+                               (< 346 (posn-y m)))
+                              (close-viewport x) ]
+                             
+                             [else (n (mouse-click-posn (get-mouse-click x)))]))
+         (n m))))
+
+(define (select-level-screen)
+  (lambda (x)
+  (begin (((draw-pixmap-posn "E:\\2nd sem\\CS 152\\project\\images\\level.png") x)
+                 (make-posn 0 0)
+                 "black")
+         (define m (mouse-click-posn (get-mouse-click x)))
+         (define (n m) (cond [(and (> 133 (posn-x m))
+                               (< 9 (posn-x m))
+                               (> 691 (posn-y m))
+                               (< 646 (posn-y m))) 
+                              ((1-screen) x)]
+                             [(and (> 412 (posn-x m))
+                               (< 330 (posn-x m))
+                               (> 226 (posn-y m))
+                               (< 151 (posn-y m)))
+                              (new bridge% [p1 (cons 472 570)] [p2 (cons 761 570)] [stage "stage1.jpg"]) ]
+                             [(and (> 660 (posn-x m))
+                               (< 580 (posn-x m))
+                               (> 226 (posn-y m))
+                               (< 151 (posn-y m)))
+                              (new bridge% [p1 (cons 431 570)] [p2 (cons 730 570)] [stage "stage2.jpg"])]
+                             [(and (> 892 (posn-x m))
+                               (< 813 (posn-x m))
+                               (> 226 (posn-y m))
+                               (< 151 (posn-y m)))
+                              (new bridge% [p1 (cons 389 673)] [p2 (cons 746 766)] [stage "stage3.jpg"])]
+                             [else (n (mouse-click-posn (get-mouse-click x)))]))
+         (n m))))
+
+(define (credit-screen)
+  (lambda (x)
+  (begin (((draw-pixmap-posn "E:\\2nd sem\\CS 152\\project\\images\\credits.png") x)
+                 (make-posn 0 0)
+                 "black")
+         (define m (mouse-click-posn (get-mouse-click x)))
+         (define (n m) (cond [(and (> 133 (posn-x m))
+                               (< 9 (posn-x m))
+                               (> 691 (posn-y m))
+                               (< 646 (posn-y m)))
+                              ((1-screen) x)]
+                             [else (n (mouse-click-posn (get-mouse-click x)))]))
+         (n m))))
+
+(define (instruction-screen)
+  (lambda (x)
+  (begin (((draw-pixmap-posn "E:\\2nd sem\\CS 152\\project\\images\\instructionss.png") x)
+                 (make-posn 0 0)
+                 "black")
+         (define m (mouse-click-posn (get-mouse-click x)))
+         (define (n m) (cond [(and (> 133 (posn-x m))
+                               (< 9 (posn-x m))
+                               (> 691 (posn-y m))
+                               (< 646 (posn-y m)))
+                              ((1-screen) x)]
+                             [else (n (mouse-click-posn (get-mouse-click x)))]))
+         (n m))))
+
+
+((1-screen) v1)

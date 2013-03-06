@@ -1,0 +1,604 @@
+(define mass 10)
+(define strain 0.05)
+
+(define (make-2d-vector r c initial)
+  (build-vector r (lambda (x) (make-vector c initial))))
+
+(define (2d-vector-ref vec r c)
+  (vector-ref (vector-ref vec r) c))
+
+(define (2d-vector-setrow! vec r vallist)
+  (define (vector-seth! v c list)
+    (if (null? list) (void)
+        (begin (vector-set! v c (car list))
+               (vector-seth! v (+ c 1) (cdr list)))))
+  (vector-seth! (vector-ref vec r) 0 vallist))
+
+(define (2d-vector-set! vec r c val)
+  (vector-set! (vector-ref vec r) c val))
+
+
+(define (len pos1 pos2)
+  (sqrt (+ (sqr (- (car pos1) (car pos2)))
+           (sqr (- (cdr pos1) (cdr pos2)))))
+  )
+
+(define (coeff-x mpos pos)
+  (/ (- (car mpos) (car pos)) (len mpos pos)))
+
+(define (coeff-y mpos pos)
+  (/ (- (cdr mpos) (cdr pos)) (len mpos pos)))
+
+(define (check-pos pt lpart-pairs pos)
+  (if (null? lpart-pairs) #f
+      (if (= pos 0) (or (equal? pt (caar lpart-pairs)) 
+                        (equal? pt (cadar lpart-pairs)))
+          (check-pos pt (cdr lpart-pairs) (- pos 1))))
+  )
+
+(define (get pt pair)
+  (if (equal? pt (car pair)) (cdr pair) (car pair))
+  )
+
+(define (mid pos1 pos2)
+  (cons (/ (+ (car pos1) (car pos2)) (+ (cdr pos1) (cdr pos2))))
+  )
+
+(define (get-pt i pts)
+  (if (null? pts) (error "insufficient list")
+      (if (= i 0) (car pts) (get-pt (- i 1) (cdr pts))))
+  )
+
+(define (initial-check parts part-pairs)
+  (define v (make-2d-vector ( * 3 (length parts)) (+ 4 ( * 2 (length (vector->list part-pairs)))) 0))
+  (define (torque-h i) 
+    (if (< i (* 2 (length parts))) 
+        (void)
+        (begin 
+          (eval (get-pt (- i (* 2 (length parts))) parts) i)
+          (torque-h (+ i 1)))))
+  
+  (define (change pair)
+    (cons (caar pair) (cons (cadr pair) (cons (remainder (+ 1 (cddr pair)) 2) '())))
+    )
+  
+  (define (common pair)
+    (if (or (equal? (caaar pair) (caadr pair)) (equal? (caaar pair) (cdadr pair)))
+        (caaar pair) 
+        (cdaar pair)
+        )
+    )
+  
+  (define (get-special pt)
+    (if (equal? pt (car parts)) (caar parts) (caar (reverse parts)))
+    )
+  
+  (define (special pt i)
+    (if (= i 0) (equal? pt (car parts)) (equal? pt (cdr (reverse parts)))))
+  
+  (define (eval pt i)
+    (define pos 0)
+    (define hor 0)
+    (if (not (or (special pt 0) (special pt 1)))
+        (begin 
+          (vector-map! (λ(t) (cond [(>= pos ( * 2 (length (vector->list part-pairs))))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)] 
+                                   [(not (check-pos pt (vector->list part-pairs) pos))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)]
+                                   [else (if (= 0 (caddr (vector-ref part-pairs (quotient pos 2))))
+                                             (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                    (if (= hor 0)
+                                                        (begin (set! hor 1)
+                                                               (* -0.5 (- (cdr (common (vector-ref part-pairs (quotient pos 2))))
+                                                                          (cdr (get (common (vector-ref part-pairs (quotient pos 2))) pt)))))
+                                                        (begin (set! hor 0)
+                                                               (set! pos (+ 2 pos))
+                                                               (* 0.5 (- (car (common (vector-ref part-pairs (quotient pos 2))))
+                                                                         (car (get (common (vector-ref part-pairs (quotient pos 2))) pt)))))))
+                                             
+                                             (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                    (if (= hor 0)
+                                                        (begin (set! hor 1)
+                                                               (* 0.5 (- (cdr (common (vector-ref part-pairs (quotient pos 2))))
+                                                                         (cdr (get (common (vector-ref part-pairs (quotient pos 2))) pt)))))
+                                                        (begin (set! hor 0)
+                                                               (set! pos (+ 2 pos))
+                                                               (* -0.5 (- (car (common (vector-ref part-pairs (quotient pos 2))))
+                                                                          (car (get (common (vector-ref part-pairs (quotient pos 2))) pt)))))))
+                                             )])) 
+                       (vector-ref v i)))
+        
+        (if (special pt 0)
+            (begin 
+              (vector-map! (λ(t) (cond [(>= pos (+ 2 ( * 2 (length (vector->list part-pairs)))))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)]
+                                       [(= pos ( * 2 (length (vector->list part-pairs)))) 
+                                        (begin (set! pos (+ 1 pos))
+                                               (* -0.5 (- (cdr (get-special pt)) (cdr (get (get-special pt) pt))))
+                                               )]
+                                       [(= pos (+ 1 ( * 2 (length (vector->list part-pairs))))) 
+                                        (begin (set! pos (+ 1 pos))
+                                               (* 0.5 (- (car (get-special pt)) (car (get (get-special pt) pt))))
+                                               )]
+                                       [(not (check-pos pt (vector->list part-pairs) pos))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)]
+                                       [else (if (= 0 (caddr (vector-ref part-pairs (quotient pos 2))))
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (if (= hor 0)
+                                                            (begin (set! hor 1)
+                                                                   (- (cdr (common (vector-ref part-pairs (quotient pos 2))))
+                                                                      (cdr (get (common (vector-ref part-pairs (quotient pos 2))) pt))))
+                                                            (begin (set! hor 0)
+                                                                   (set! pos (+ 2 pos))
+                                                                   (- (car (common (vector-ref part-pairs (quotient pos 2))))
+                                                                      (car (get (common (vector-ref part-pairs (quotient pos 2))) pt))))))
+                                                 
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (if (= hor 0)
+                                                            (begin (set! hor 1)
+                                                                   (* -1 (- (cdr (common (vector-ref part-pairs (quotient pos 2))))
+                                                                            (cdr (get (common (vector-ref part-pairs (quotient pos 2))) pt)))))
+                                                            (begin (set! hor 0)
+                                                                   (set! pos (+ 2 pos))
+                                                                   (* -1 (- (car (common (vector-ref part-pairs (quotient pos 2))))
+                                                                            (car (get (common (vector-ref part-pairs (quotient pos 2))) pt)))))))
+                                                 )])) 
+                           (vector-ref v i)))
+            
+            (begin 
+              (vector-map! (λ(t) (cond  [(= pos (+ 2 ( * 2 (length (vector->list part-pairs)))))
+                                         (begin (set! pos (+ 1 pos))
+                                                (* -0.5 (- (cdr (get-special pt)) (cdr (get (get-special pt) pt))))
+                                                )]
+                                        [(= pos (+ 3 ( * 2 (length (vector->list part-pairs))))) 
+                                         (begin (set! pos (+ 1 pos))
+                                                (* 0.5 (- (car (get-special pt)) (car (get (get-special pt) pt))))
+                                                )]
+                                        [(>= pos ( * 2 (length (vector->list part-pairs))))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [(not (check-pos pt (vector->list part-pairs) pos))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [else (if (= 0 (caddr (vector-ref part-pairs (quotient pos 2))))
+                                                  (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                         (if (= hor 0)
+                                                             (begin (set! hor 1)
+                                                                    (- (cdr (common (vector-ref part-pairs (quotient pos 2))))
+                                                                       (cdr (get (common (vector-ref part-pairs (quotient pos 2))) pt))))
+                                                             (begin (set! hor 0)
+                                                                    (set! pos (+ 2 pos))
+                                                                    (- (car (common (vector-ref part-pairs (quotient pos 2))))
+                                                                       (car (get (common (vector-ref part-pairs (quotient pos 2))) pt))))))
+                                                  
+                                                  (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                         (if (= hor 0)
+                                                             (begin (set! hor 1)
+                                                                    (* -1 (- (cdr (common (vector-ref part-pairs (quotient pos 2))))
+                                                                             (cdr (get (common (vector-ref part-pairs (quotient pos 2))) pt)))))
+                                                             (begin (set! hor 0)
+                                                                    (set! pos (+ 2 pos))
+                                                                    (* -1 (- (car (common (vector-ref part-pairs (quotient pos 2))))
+                                                                             (car (get (common (vector-ref part-pairs (quotient pos 2))) pt)))))))
+                                                  )])) 
+                           (vector-ref v i)))
+            )
+        ))
+  
+  
+  (define (force-h i) 
+    (if (= i (* 2 (length parts))) 
+        (void)
+        (begin 
+          (eval-f (get-pt (quotient i 2) parts) i)
+          (force-h (+ i 2)))))
+  
+  (define (eval-f pt i)
+    (define pos 0)
+    (if (not (or (special pt 0) (special pt 1)))
+        (begin
+          (vector-map! (λ(t) (cond [(>= pos ( * 2 (length (vector->list part-pairs))))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)] 
+                                   [(= 1 (remainder pos 2))
+                                    (begin (set! pos (+ 1 pos)) 0)]
+                                   [(not (check-pos pt (vector->list part-pairs) pos))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)]
+                                   [else (if (= 0 (caddr (vector-ref part-pairs (quotient pos 2))))
+                                             (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                    (set! pos (+ 1 pos))
+                                                    1)
+                                             (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                    (set! pos (+ 1 pos))
+                                                    -1)
+                                             )])) 
+                       (vector-ref v i))
+          (set! pos 0)
+          (vector-map! (λ(t) (cond [(>= pos ( * 2 (length (vector->list part-pairs))))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)]
+                                   [(= 0 (remainder pos 2))
+                                    (begin (set! pos (+ 1 pos)) 0)]
+                                   [(not (check-pos pt (vector->list part-pairs) pos))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)]
+                                   [else (if (= 0 (caddr (vector-ref part-pairs (quotient pos 2))))
+                                             (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                    (set! pos (+ 1 pos))
+                                                    1)
+                                             (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                    (set! pos (+ 1 pos))
+                                                    -1)
+                                             )])) 
+                       (vector-ref v (+ i 1)))
+          (set! pos 0)
+          )
+        (if (special pt 0)
+            (begin
+              (vector-map! (λ(t) (cond [(= 1 (remainder pos 2))
+                                        (begin (set! pos (+ 1 pos)) 0)]
+                                       [(= pos ( * 2 (length (vector->list part-pairs))))
+                                        (begin (set! pos (+ 1 pos))
+                                               1)] 
+                                       [(= pos (+ 2 ( * 2 (length (vector->list part-pairs)))))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)]
+                                       [(not (check-pos pt (vector->list part-pairs) pos))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)]
+                                       [else (if (= 0 (caddr (vector-ref part-pairs (quotient pos 2))))
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (set! pos (+ 1 pos))
+                                                        1)
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (set! pos (+ 1 pos))
+                                                        -1)
+                                                 )])) 
+                           (vector-ref v i))
+              (set! pos 0)
+              (vector-map! (λ(t) (cond [(= 0 (remainder pos 2))
+                                        (begin (set! pos (+ 1 pos)) 0)]
+                                       [(= pos (+ 1 ( * 2 (length (vector->list part-pairs)))))
+                                        (begin (set! pos (+ 1 pos))
+                                               1)] 
+                                       [(= pos (+ 3 ( * 2 (length (vector->list part-pairs)))))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)]
+                                       [(not (check-pos pt (vector->list part-pairs) pos))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)]
+                                       [else (if (= 0 (caddr (vector-ref part-pairs (quotient pos 2))))
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (set! pos (+ 1 pos))
+                                                        1)
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (set! pos (+ 1 pos))
+                                                        -1)
+                                                 )])) 
+                           (vector-ref v (+ i 1)))
+              (set! pos 0)
+              )
+            (begin
+              (vector-map! (λ(t) (cond [(= 1 (remainder pos 2))
+                                        (begin (set! pos (+ 1 pos)) 0)]
+                                       [(= pos ( * 2 (length (vector->list part-pairs))))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)] 
+                                       [(= pos (+ 2 ( * 2 (length (vector->list part-pairs)))))
+                                        (begin (set! pos (+ 1 pos))
+                                               1)]
+                                       [(not (check-pos pt (vector->list part-pairs) pos))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)]
+                                       [else (if (= 0 (caddr (vector-ref part-pairs (quotient pos 2))))
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (set! pos (+ 1 pos))
+                                                        1)
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (set! pos (+ 1 pos))
+                                                        -1)
+                                                 )])) 
+                           (vector-ref v i))
+              (set! pos 0)
+              (vector-map! (λ(t) (cond [(= 0 (remainder pos 2))
+                                        (begin (set! pos (+ 1 pos)) 0)]
+                                       [(= pos (+ 1 ( * 2 (length (vector->list part-pairs)))))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)] 
+                                       [(= pos (+ 3 ( * 2 (length (vector->list part-pairs)))))
+                                        (begin (set! pos (+ 1 pos))
+                                               1)]
+                                       [(not (check-pos pt (vector->list part-pairs) pos))
+                                        (begin (set! pos (+ 1 pos))
+                                               0)]
+                                       [else (if (= 0 (caddr (vector-ref part-pairs (quotient pos 2))))
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (set! pos (+ 1 pos))
+                                                        1)
+                                                 (begin (vector-set! part-pairs pos (change (vector-ref part-pairs (quotient pos 2))))
+                                                        (set! pos (+ 1 pos))
+                                                        -1)
+                                                 )])) 
+                           (vector-ref v (+ i 1)))
+              (set! pos 0)
+              )
+            
+            )
+        )
+    )
+  (force-h 0)
+  )
+
+(define (return pairs pos)
+  (if (null? pairs) #f
+      (if (= pos 0)
+          (car pairs)
+          (return (cdr pairs) (- pos 1))))
+  )
+
+(define (pos-check pt pairs pos)
+  (if (null? pairs) #f
+      (if (= pos 0) 
+          (or (equal? pt (caar pairs)) (equal? pt (cdar pairs)))
+          (pos-check pt (cdr pairs) (- pos 1)))))
+
+(define (deter-case points parts rhs-vec)
+  (define v (make-2d-vector (* 2 (length points)) (+ 4 (length parts)) 0))
+  
+  (define (force-h i) 
+    (if (= i (* 2 (length points))) 
+        (void)
+        (begin 
+          (eval-f (get-pt (quotient i 2) points) i)
+          (force-h (+ i 2)))))
+  
+  (define (eval-f pt i)
+    (define pos 0)
+    (if (not (or (= i 0) (= i (- (* 2 (length points)) 2))))
+        (begin
+          (vector-map! (λ(t) (cond [(>= pos (length parts))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)] 
+                                   [(not (pos-check pt parts pos))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)]
+                                   [else (begin (set! pos (+ 1 pos))
+                                                (coeff-x (get pt (return parts (- pos 1))) pt))])) 
+                       (vector-ref v i))
+          (set! pos 0)
+          (vector-map! (λ(t) (cond [(>= pos (length parts))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)] 
+                                   [(not (pos-check pt parts pos))
+                                    (begin (set! pos (+ 1 pos))
+                                           0)]
+                                   [else (begin (set! pos (+ 1 pos))
+                                                (coeff-y (get pt (return parts (- pos 1))) pt))])) 
+                       (vector-ref v (+ i 1)))
+          (set! pos 0))
+        (if (= i 0)
+            (begin 
+              (vector-map! (λ(t) (cond  [(= pos (length parts))
+                                         (begin (set! pos (+ 1 pos))
+                                                1)]
+                                        [(> pos (length parts))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [(not (pos-check pt parts pos))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [else (begin (set! pos (+ 1 pos))
+                                                     (coeff-x (get pt (return parts (- pos 1))) pt))])) 
+                           (vector-ref v i))
+              (set! pos 0)
+              (vector-map! (λ(t) (cond  [(= pos (+ 1 (length parts)))
+                                         (begin (set! pos (+ 1 pos))
+                                                1)]
+                                        [(>= pos (length parts))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [(not (pos-check pt parts pos))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [else (begin (set! pos (+ 1 pos))
+                                                     (coeff-y (get pt (return parts (- pos 1))) pt))])) 
+                           (vector-ref v (+ i 1)))
+              (set! pos 0))
+            
+            (begin 
+              (vector-map! (λ(t) (cond  [(= pos (+ 2 (length parts)))
+                                         (begin (set! pos (+ 1 pos))
+                                                1)]
+                                        [(>= pos (length parts))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [(not (pos-check pt parts pos))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [else (begin (set! pos (+ 1 pos))
+                                                     (coeff-x (get pt (return parts (- pos 1))) pt))])) 
+                           (vector-ref v i))
+              (set! pos 0)
+              (vector-map! (λ(t) (cond  [(= pos (+ 3 (length parts)))
+                                         (begin (set! pos (+ 1 pos))
+                                                1)]
+                                        [(>= pos (length parts))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [(not (pos-check pt parts pos))
+                                         (begin (set! pos (+ 1 pos))
+                                                0)]
+                                        [else (begin (set! pos (+ 1 pos))
+                                                     (coeff-y (get pt (return parts (- pos 1))) pt))])) 
+                           (vector-ref v (+ i 1)))
+              (set! pos 0)))
+        ))
+  
+  
+  (begin (force-h 0)
+         (matrix-solve v
+                       (make-vector (* 2 (length points)) 0)
+                       rhs-vec
+                       (* 2 (length points)) 
+                       (* 2 (length points))))
+  )
+
+
+(define pts (list (cons 20 30) (cons 10 40) (cons 40 30)))
+(define parts (list (cons (cons 20 30) (cons 10 40)) 
+                    (cons (cons 10 40) (cons 40 30))
+                    ;(cons (cons 40 30) (cons 20 30))
+                    ))
+(define path (list (cons 20 30) (cons 10 40) (cons 40 30)))
+(define inp-vec (make-vector (* 2 (length pts)) 0))
+(vector-set! inp-vec 1 10)
+(define rhs-vec (make-vector (* 2 (length pts)) 0))
+(vector-set! rhs-vec 1 10)
+
+(define (pos t pts)
+  (if (null? pts) (error "not in list")
+      (if (equal? t (car pts)) 0 (+ 1 (pos t (cdr pts)))))
+  )
+
+(define (remove rod prts)
+  (if (equal? rod (car prts)) (cdr prts)
+      (cons (car prts) (remove rod (cdr prts))))
+  )
+
+(define (sum l1 l2 all-parts)
+  (if (null? all-parts) 0
+      (+ (* (car l1) (car l2) (len (caar all-parts) (cdar all-parts)))
+         (sum (cdr l1) (cdr l2) (cdr all-parts))))
+  )
+
+(define (indeter-case1 pts parts redund rhs-vec inp-vec)
+  (define (alter)
+    (let* ([r-vec rhs-vec]
+           [change1 (vector-append
+                     (vector-take r-vec (* 2 (pos (car redund) pts))) 
+                     (make-vector 1 (+ (vector-ref r-vec (* 2(pos (car redund) pts)))
+                                       (coeff-x (cdr redund) (car redund))))
+                     (make-vector 1 (+ (vector-ref r-vec (+ 1 (* 2(pos (car redund) pts)))) 
+                                       (coeff-y (cdr redund) (car redund))))
+                     (vector-drop r-vec (+ 2 (* 2 (pos (car redund) pts)))))]
+           [change2 (vector-append
+                     (vector-take change1 (* 2 (pos (cdr redund) pts))) 
+                     (make-vector 1 (+ (vector-ref change1 (* 2(pos (cdr redund) pts)))
+                                       (coeff-x (car redund) (cdr redund))))
+                     (make-vector 1 (+ (vector-ref change1 (+ 1 (* 2(pos (cdr redund) pts))))
+                                       (coeff-y (car redund) (cdr redund))))
+                     (vector-drop change1 (+ 2 (* 2 (pos (cdr redund) pts)))))])
+      change2)
+    )
+  (let* ([rem-parts (remove redund parts)]
+         [ext (deter-case pts rem-parts inp-vec)]
+         [ext-f (vector-append
+                 (vector-take ext (pos redund parts)) 
+                 (make-vector 1 0)
+                 (vector-drop ext (pos redund parts)))]
+         [int (deter-case pts rem-parts (alter))]
+         [int-f (vector-append
+                 (vector-take int (pos redund parts)) 
+                 (make-vector 1 1)
+                 (vector-drop int (pos redund parts)))]
+         [ext-disp (sum (vector->list ext-f) (vector->list int-f) parts)]
+         [int-disp (sum (vector->list int-f) (vector->list int-f) parts)]
+         [force-redund (* -1 (/ ext-disp int-disp))]
+         [new-f (for/vector ([i ext-f] [j int-f]) (+ i (* force-redund j)))]
+         )
+    new-f
+    ) 
+  )
+
+(define (main-fn path points parts)
+  (define all-vec (make-2d-vector (length path) (+ 4 (length parts)) 0))
+  (define (set-all path i)
+    (define vec (make-vector (* 2 (length points)) 0))
+    (if (null? path) 
+        (void)
+        (begin (vector-set! vec (+ 1 (* 2 (pos (car path) points))) mass)
+               (2d-vector-setrow! all-vec i (vector->list (deter-case points parts vec)))
+               (set-all (cdr path) (+ i 1))))
+    )
+  
+  (define (get-redund)
+      (define (get-h i)
+        (if (check (join path) (remove (get-pt i parts) parts))
+            (get-pt i parts)
+          (get-h (+ i 1))))
+      (get-h 0)
+      )
+  
+  (define (set-indeter path i)
+    (define rvec (make-vector (* 2 (length points)) 0))
+    (define ivec (make-vector (* 2 (length points)) 0))
+    
+       
+     (if (null? path) 
+        (void)
+        (begin (vector-set! rvec (+ 1 (* 2 (pos (car path) points))) mass)
+               (vector-set! ivec (+ 1 (* 2 (pos (car path) points))) mass)
+               (2d-vector-setrow! all-vec i (vector->list (indeter-case1 points parts (get-redund) rvec ivec)))
+               ;(display all-vec)
+               (set-indeter (cdr path) (+ i 1))))
+    )
+  
+  (if (= (* 2 (length points)) (+ 4 (length parts)))
+      (begin 
+        (set-all path 0)
+        ;(display all-vec)
+        (check-stability all-vec parts (length path) path))
+      (if (= (+ 1 (* 2 (length points))) (+ 4 (length parts)))
+          (begin 
+        (set-indeter path 0)
+        ;(display all-vec)
+        (check-stability all-vec parts (length path) path))
+      (void))
+      ))
+
+(define (check-stability all-vec parts num path)
+  (define (check-h i)
+    (if (= i num) (cons path #t)
+        (let* ([v1 (vector-ref all-vec i)]
+               [v (vector-take v1 (length parts))]
+               [diff (for/vector ([l v] [m parts]) (- (* strain (length-p m)) (abs l)))])
+          (if (equal? (length (vector->list diff))
+                      (check (vector->list diff)))
+              (check-h (+ i 1))
+              (cons (vector->list (vector-take (list->vector path) (+ i 1))) 
+                    (get-pt (check (vector->list diff)) parts)))
+          )
+        ))
+  
+  (define (check l)
+    (if (null? l) 0
+        (if (< (car l) 0) 0 (+ 1 (check (cdr l))))
+        )
+    )
+  (check-h 0)
+  )
+
+(define (length-p m)
+  (len (car m) (cdr m))
+  )
+
+(define (check jpath all-parts)
+(define (check-h pair all-parts)
+  (if (null? pair) #t
+      (if (null? all-parts) #f
+      (or (equal? pair (car all-parts))
+          (equal? (cons (cdr pair) (car pair)) (car all-parts))
+          (check-h pair (cdr all-parts))))))
+  (if (null? jpath) #t 
+      (and (check-h (car jpath) all-parts) (check (cdr jpath) all-parts)))
+  )
+
+(define (join path)
+  (if (null? (cdr path)) '()
+      (cons (cons (car path) (cadr path)) (join (cdr path)))))
+
